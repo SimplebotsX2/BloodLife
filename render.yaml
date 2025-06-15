@@ -6,7 +6,7 @@ services:
     branch: main
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    startCommand: python bloodlife.py
     build:
       environment:
         pythonVersion: 3.11
