@@ -27,7 +27,8 @@ DB_FILE = "donors.json"
 ADMIN_ID = 7961164240
 
 # App
-app = ApplicationBuilder().token(BOT_TOKEN).concurrent_updates(True).build()
+app = ApplicationBuilder().token(BOT_TOKEN).build()
+
 
 # Logging
 logging.basicConfig(level=logging.INFO)
