@@ -9,6 +9,6 @@ services:
     startCommand: python bot.py
     envVars:
       - key: BOT_TOKEN
-        value:8019684115:AAH8Z9X_ZJDswpyTP4LetsPqG0IqWnyNGf8
+        value: 8019684115:AAH8Z9X_ZJDswpyTP4LetsPqG0IqWnyNGf8
       - key: ADMIN_ID
         value: "7961164240"
