@@ -1,0 +1,14 @@
+services:
+  - type: worker
+    name: bloodhelp-bot
+    env: python
+    repo: https://github.com/SimplebotsX2/BloodLife
+    branch: main
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        value:8019684115:AAH8Z9X_ZJDswpyTP4LetsPqG0IqWnyNGf8
+      - key: ADMIN_ID
+        value: "7961164240"
