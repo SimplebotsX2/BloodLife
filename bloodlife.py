@@ -7,8 +7,8 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ContextTypes, filters
 )
-
 import asyncio
+import threading
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN")
 ADMIN_IDS = [123456789]  # Replace with real admin IDs
@@ -166,13 +166,14 @@ async def init_bot():
     bot_app.add_handler(MessageHandler(filters.LOCATION, location_handler))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
-    await bot_app.bot.set_webhook(WEBHOOK_URL)
+    await bot_app.bot.set_webhook(url=WEBHOOK_URL)
     print(f"✅ Webhook set to: {WEBHOOK_URL}")
 
 # ---------- Main ----------
-if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(init_bot())
-
+def run_flask():
     port = int(os.environ.get("PORT", 10000))
-    flask_app.run(host='0.0.0.0', port=port)
+    flask_app.run(host="0.0.0.0", port=port)
+
+if __name__ == '__main__':
+    threading.Thread(target=run_flask).start()
+    asyncio.run(init_bot())
