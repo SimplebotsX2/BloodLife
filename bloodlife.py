@@ -7,7 +7,6 @@ from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler,
     ContextTypes, filters, Dispatcher, PicklePersistence
 )
-from telegram.ext import ApplicationBuilder
 import asyncio
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN")
