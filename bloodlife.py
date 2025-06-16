@@ -2,7 +2,9 @@
 import os
 import json
 import asyncio
-from datetime import datetime, timedelta
+import threading
+from datetime import datetime
+from flask import Flask
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
     ReplyKeyboardMarkup, KeyboardButton
@@ -14,10 +16,8 @@ from telegram.ext import (
 
 # ========== Configuration ==========
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN")
-ADMIN_IDS = [123456789]  # Replace with your Telegram user ID(s)
-
+ADMIN_IDS = [123456789]  # Replace with your actual Telegram user ID(s)
 DATA_FILE = "donors.json"
-
 
 # ========== Utilities ==========
 
@@ -28,15 +28,12 @@ def load_data():
     with open(DATA_FILE, "r") as f:
         return json.load(f)
 
-
 def save_data(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-
 def is_admin(user_id):
     return user_id in ADMIN_IDS
-
 
 # ========== Start & Welcome ==========
 
@@ -57,7 +54,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(welcome_text, parse_mode="Markdown", reply_markup=reply_markup)
 
-
 # ========== Donor Registration ==========
 
 async def register_donor(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -71,7 +67,6 @@ async def register_donor(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🩸 Choose your blood group:",
         reply_markup=InlineKeyboardMarkup(blood_buttons)
     )
-
 
 async def blood_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -95,8 +90,6 @@ async def blood_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Your registration is almost done. Type your *city name* to complete.",
         parse_mode="Markdown"
     )
-    return
-
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
@@ -138,7 +131,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = len(load_data())
         await update.message.reply_text(f"👑 Admin Panel\n\nTotal Donors: {count}")
 
-
 # ========== Location Handler ==========
 
 async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -146,7 +138,6 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     latitude = user_location.latitude
     longitude = user_location.longitude
 
-    # In real app, use this location to filter donors
     await update.message.reply_text("📍 Location received! Searching for nearby donors...")
 
     data = load_data()
@@ -160,10 +151,10 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ No donors found nearby.")
 
-
 # ========== Main App ==========
+
 async def main():
-  app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(blood_selection))
@@ -172,6 +163,20 @@ async def main():
 
     await app.run_polling()
 
+# ========== Flask App for Render Port Binding ==========
+
+def start_flask():
+    app_flask = Flask(__name__)
+
+    @app_flask.route('/')
+    def home():
+        return '🩸 BloodLife Bot is running!'
+
+    port = int(os.environ.get("PORT", 10000))
+    app_flask.run(host='0.0.0.0', port=port)
+
+# ========== Run ==========
 
 if __name__ == "__main__":
+    threading.Thread(target=start_flask).start()
     asyncio.run(main())
