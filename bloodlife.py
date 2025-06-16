@@ -1,26 +1,22 @@
-# main bot logic
 import os
 import json
-import asyncio
-import threading
 from datetime import datetime
-from flask import Flask
-from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    ReplyKeyboardMarkup, KeyboardButton
-)
+from flask import Flask, request
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
-    MessageHandler, ContextTypes, filters
+    Application, CommandHandler, CallbackQueryHandler, MessageHandler,
+    ContextTypes, filters, Dispatcher, PicklePersistence
 )
+from telegram.ext import ApplicationBuilder
+import asyncio
 
-# ========== Configuration ==========
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN")
-ADMIN_IDS = [123456789]  # Replace with your actual Telegram user ID(s)
+ADMIN_IDS = [123456789]  # Replace with real admin IDs
 DATA_FILE = "donors.json"
+WEBHOOK_PATH = f"/{BOT_TOKEN}"
+WEBHOOK_URL = f"https://bloodlife-7e7l.onrender.com{WEBHOOK_PATH}"
 
-# ========== Utilities ==========
-
+# ---------- Data Utils ----------
 def load_data():
     if not os.path.exists(DATA_FILE):
         with open(DATA_FILE, "w") as f:
@@ -35,8 +31,7 @@ def save_data(data):
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
-# ========== Start & Welcome ==========
-
+# ---------- Bot Handlers ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [KeyboardButton("🩸 Register as Donor")],
@@ -53,8 +48,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(welcome_text, parse_mode="Markdown", reply_markup=reply_markup)
-
-# ========== Donor Registration ==========
 
 async def register_donor(update: Update, context: ContextTypes.DEFAULT_TYPE):
     blood_buttons = [
@@ -131,15 +124,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = len(load_data())
         await update.message.reply_text(f"👑 Admin Panel\n\nTotal Donors: {count}")
 
-# ========== Location Handler ==========
-
 async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_location = update.message.location
-    latitude = user_location.latitude
-    longitude = user_location.longitude
-
-    await update.message.reply_text("📍 Location received! Searching for nearby donors...")
-
     data = load_data()
     results = [v for v in data.values() if v.get("available")]
 
@@ -151,32 +137,42 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ No donors found nearby.")
 
-# ========== Main App ==========
+# ---------- Flask Setup ----------
+flask_app = Flask(__name__)
+bot_app = None  # Telegram app will be initialized in async context
 
-async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+@flask_app.route('/')
+def index():
+    return '🩸 BloodLife Bot is running!'
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(blood_selection))
-    app.add_handler(MessageHandler(filters.LOCATION, location_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+@flask_app.route(WEBHOOK_PATH, methods=['POST'])
+async def webhook():
+    if request.method == "POST":
+        update = Update.de_json(request.get_json(force=True), bot_app.bot)
+        await bot_app.update_queue.put(update)
+        return "OK"
 
-    await app.run_polling()
+# ---------- Init Bot ----------
+async def init_bot():
+    global bot_app
+    bot_app = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .concurrent_updates(True)
+        .build()
+    )
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CallbackQueryHandler(blood_selection))
+    bot_app.add_handler(MessageHandler(filters.LOCATION, location_handler))
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
-# ========== Flask App for Render Port Binding ==========
+    await bot_app.bot.set_webhook(WEBHOOK_URL)
+    print(f"✅ Webhook set to: {WEBHOOK_URL}")
 
-def start_flask():
-    app_flask = Flask(__name__)
-
-    @app_flask.route('/')
-    def home():
-        return '🩸 BloodLife Bot is running!'
+# ---------- Main ----------
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(init_bot())
 
     port = int(os.environ.get("PORT", 10000))
-    app_flask.run(host='0.0.0.0', port=port)
-
-# ========== Run ==========
-
-if __name__ == "__main__":
-    threading.Thread(target=start_flask).start()
-    asyncio.run(main())
+    flask_app.run(host='0.0.0.0', port=port)
